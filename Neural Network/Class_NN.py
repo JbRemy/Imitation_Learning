@@ -76,7 +76,7 @@ class NeuralNetwork:
                     batch_x, batch_y = create_batch(batch_size, X, y)
                     _, c = sess.run([self.optimizer, self.cost], feed_dict={x: batch_x, y: batch_y})
 
-                    avg_cost += c / (batch_size * total_batch)
+                    avg_cost += c / total_batch
 
                 if epoch % 10 == 0:
                     print("Epoch: %i, cost = %f" % (epoch + 1, avg_cost))
