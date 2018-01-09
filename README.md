@@ -1,5 +1,7 @@
 # Imitation_Learning
 
+Work in progress, deadline 19 january 2018.
+
 Class project for the course Reinforcement Learning of the MVA 2017-2018
 
 The goal is to train an agent to play MarioKart 64 using a reinforcement learning scheme reduced to no-regret learning. The two implemented articles are :
