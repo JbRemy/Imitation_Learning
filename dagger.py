@@ -2,8 +2,7 @@ import numpy as np
 import gym
 from Class_NN import NeuralNetwork
 
-
-class SMILE(object):
+class DAGGER(object):
     def __init__(self, parameters):
         self.env = gym.make(parameters["env_name"])
         self.deep_q_net = NeuralNetwork(batch_size=parameters['batch_size'],
@@ -40,11 +39,6 @@ class SMILE(object):
                 "obs": episodes_obs,
                 "actions": np.array(episodes_actions)}
 
-    def run_agents(self, agents, nb_episodes):
-        simulations = []
-        for agent in agents:
-            simulations.append(self.run_episodes(agent, nb_episodes))
-        return simulations
 
     def run_simulator(self, nb_iterations, nb_episodes):
         for i in range(nb_iterations):
