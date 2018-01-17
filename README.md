@@ -11,3 +11,20 @@ The goal is to train an agent to play MarioKart 64 using a reinforcement learnin
 to No-Regret Online Learning</a>
 
 To implement the algorithm we use python and the <a href="https://github.com/bzier/gym-mupen64plus">OpenAI Gym</a> environment wrapper for the Mupen64Plus N64 emulator.
+
+**To do**:
+- [ ] Build Neural net
+- [ ] Data set Generation
+- [ ] Build machine interface
+
+Repo architecture :
+- <span style="color:green"> Algorithms.py</span> (SMILE DAGGER)
+- <span style="color:red"> Data</span>
+    - images (.npy)
+    - actions (.npy)
+    - states (.txt)
+- <span style="color:green"> Deep_net.py</span>
+- <span style="color:green"> main.py</span>
+- <span style="color:red"> Models</span>
+    - saved models
+- <span style="color:green"> Utils.py</span>
