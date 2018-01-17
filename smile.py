@@ -1,8 +1,9 @@
 import numpy as np
 import gym
-from Class_NN import NeuralNetwork
+from deepnet import NeuralNetwork
 
-class DAGGER(object):
+
+class SMILE(object):
     def __init__(self, parameters):
         self.env = gym.make(parameters["env_name"])
         self.deep_q_net = NeuralNetwork(batch_size=parameters['batch_size'],
@@ -14,6 +15,10 @@ class DAGGER(object):
                        for _ in range(parameters["nb_agents"])]
         self.input_shape = parameters["input_shape"]
         self.gamma = parameters["gamma"]
+
+    def get_expert(self):
+
+        pass
 
     def run_episodes(self, agent, nb_episodes):
         for i in range(nb_episodes):
@@ -39,18 +44,13 @@ class DAGGER(object):
                 "obs": episodes_obs,
                 "actions": np.array(episodes_actions)}
 
-    def run_agents(self, agents, nb_episodes):
-        simulations = []
-        for agent in agents:
-            simulations.append(self.run_episodes(agent, nb_episodes))
-        return simulations
 
     def run_simulator(self, nb_iterations, nb_episodes):
         for i in range(nb_iterations):
             print("Iteration " + str(i) + "/" + str(nb_iterations))
             simulations = self.reshape_simulations(self.run_agents(self.agents,
                                                                    nb_episodes=nb_episodes))
-            self.deep_q_net.learn(x_train=simulations["obs"],
+            self.deep_q_net.fit(x_train=simulations["obs"],
                                   y_train=simulations["rewards"])
 
 

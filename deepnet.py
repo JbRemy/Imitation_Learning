@@ -5,6 +5,7 @@ from sklearn import model_selection
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
+
 def create_batch(batch_size, x_data, y_data):
     batch_mask = np.random.choice(len(x_data), batch_size, replace=False)
     x_batch = x_data[batch_mask]
@@ -29,17 +30,15 @@ saver = tf.train.Saver()
 
 class NeuralNetwork:
 
-    def __init__(self, input_size, size_hidden_layers, output_size, learning_rate, seed=None):
+    def __init__(self, size_hidden_layers, output_size, learning_rate, sess,
+                 input_size=(224, 224, 3), batch_size=32, epochs=50, seed=None):
 
         if not (seed is None):
             self.rng = np.random.RandomState(seed)
-
+        self.sess=sess
+        self.batch_size = batch_size
         self.input_size = input_size
-        self.size_hidden_layers = size_hidden_layers
-        self.output_size = output_size
-
-        self.learning_rate = learning_rate
-
+        self.epochs = epochs
         self.x = tf.placeholder(tf.float32, [None, input_size])
         self.y = tf.placeholder(tf.float32, [None, output_size])
 
@@ -64,17 +63,17 @@ class NeuralNetwork:
         self.init = tf.global_variables_initializer()
 
 
-    def train(self, X, y,num_epochs, batch_size, save_file="/tmp/model.ckpt"):
+    def fit(self, X, y):
 
-        with tf.Session() as sess:
-            sess.run(self.init)
+        with tf.Session() as self.sess:
+            self.sess.run(self.init)
 
-            for epoch in range(num_epochs):
+            for epoch in range(self.epochs):
                 avg_cost = 0
-                total_batch = int(X.shape[0] / batch_size)
+                total_batch = int(X.shape[0] / self.batch_size)
                 for i in range(total_batch):
-                    batch_x, batch_y = create_batch(batch_size, X, y)
-                    _, c = sess.run([self.optimizer, self.cost], feed_dict={x: batch_x, y: batch_y})
+                    batch_x, batch_y = create_batch(self.batch_size, X, y)
+                    _, c = self.sess.run([self.optimizer, self.cost], feed_dict={x: batch_x, y: batch_y})
 
                     avg_cost += c / total_batch
 
@@ -83,11 +82,12 @@ class NeuralNetwork:
 
             print("\nTraining complete!")
 
-        self.save_path = saver.save(sess, save_file)
+    def save_model(self, path="/tmp/model.ckpt"):
+        self.save_path = saver.save(self.sess, path)
         print("Model saved in file: %s" % self.save_path)
 
 
-    def make_prediction(self, X):
+    def predict(self, X):
 
         with tf.Session() as sess:
             saver.restore(sess, self.save_path)
