@@ -23,7 +23,7 @@ from collections import deque
 from pygame.locals import HWSURFACE, DOUBLEBUF, RESIZABLE, VIDEORESIZE
 
 
-def variable_summaries(var, collections, family):
+def variable_summaries(var, collections):
     '''
     Saves metrics about a variable
     :param var:
@@ -36,13 +36,13 @@ def variable_summaries(var, collections, family):
     with tf.name_scope('stddev'):
         stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
 
-    tf.summary.scalar('stddev', stddev, collections=collections, family=family)
-    tf.summary.scalar('max', tf.reduce_max(var), collections=collections, family=family)
-    tf.summary.scalar('min', tf.reduce_min(var),collections=collections, family=family)
-    tf.summary.histogram('histogram', var, collections=collections, family=family)
+    tf.summary.scalar('stddev', stddev, collections=collections)
+    tf.summary.scalar('max', tf.reduce_max(var), collections=collections)
+    tf.summary.scalar('min', tf.reduce_min(var), collections=collections)
+    tf.summary.histogram('histogram', var, collections=collections)
 
 
-def Fetch_trajectories(agent, beta, humans=True):
+def Fetch_trajectories(agent, beta=1, humans=True):
 
     if humans:
         play_expert_agent_humans(agent.env, agent.policy, agent.data_path, beta)
@@ -64,7 +64,8 @@ def save_state(previous_states, action, save_path):
     np.save('{}/actions/{}'.format(save_path, state_number), action)
 
 
-def play_expert_agent_humans(env, agent_policy, data_set_path, beta, transpose=True, fps=30, zoom=None, callback=None, keys_to_action=None):
+def play_expert_agent_humans(env, agent_policy, data_set_path, beta, transpose=True, fps=130, zoom=5, callback=None,
+                             keys_to_action=None):
     '''
     This function is an adaptation of the gym.utils.play function that allows the agent to play in place of the expert,
     and to save the states.
@@ -180,3 +181,10 @@ def display_arr(screen, arr, video_size, transpose):
     pyg_img = pygame.transform.scale(pyg_img, video_size)
     screen.blit(pyg_img, (0, 0))
 
+
+
+if __name__ == "__main__":
+    from Utils import Fetch_trajectories
+    from agent import Agent
+    agent = Agent("pong", "/Users/charlesdognin/Desktop/Imitation_Learning/pong", 0)
+    Fetch_trajectories(agent, beta=1)
