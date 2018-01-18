@@ -6,6 +6,8 @@ pong = {"env_name" : 'Pong-v0',
         "batch_size" : 6,
         "optimizer" : tf.train.AdamOptimizer,
         'learning_rate': 1e-3,
+        'beta' : 0.9,
+        'device' : '/CPU:0',
 
         'path' : '/pong',
 

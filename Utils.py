@@ -23,7 +23,7 @@ from collections import deque
 from pygame.locals import HWSURFACE, DOUBLEBUF, RESIZABLE, VIDEORESIZE
 
 
-def variable_summaries(var, collections):
+def variable_summaries(var, collections, family):
     '''
     Saves metrics about a variable
     :param var:
@@ -36,10 +36,10 @@ def variable_summaries(var, collections):
     with tf.name_scope('stddev'):
         stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
 
-    tf.summary.scalar('stddev', stddev, collections=collections)
-    tf.summary.scalar('max', tf.reduce_max(var), collections=collections)
-    tf.summary.scalar('min', tf.reduce_min(var),collections=collections)
-    tf.summary.histogram('histogram', var, collections=collections)
+    tf.summary.scalar('stddev', stddev, collections=collections, family=family)
+    tf.summary.scalar('max', tf.reduce_max(var), collections=collections, family=family)
+    tf.summary.scalar('min', tf.reduce_min(var),collections=collections, family=family)
+    tf.summary.histogram('histogram', var, collections=collections, family=family)
 
 
 def Fetch_trajectories(agent, beta, humans=True):

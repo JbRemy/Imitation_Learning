@@ -4,7 +4,7 @@ import tensorflow as tf
 
 class Agent(object):
 
-    def __init__(self, env, data_path, network, device='/CPU:0'):
+    def __init__(self, env, data_path, Network, device='/CPU:0'):
         '''
 
         :param env:
