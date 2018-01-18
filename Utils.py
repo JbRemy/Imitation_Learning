@@ -38,7 +38,7 @@ def variable_summaries(var, collections):
 
     tf.summary.scalar('stddev', stddev, collections=collections)
     tf.summary.scalar('max', tf.reduce_max(var), collections=collections)
-    tf.summary.scalar('min', tf.reduce_min(var),collections=collections)
+    tf.summary.scalar('min', tf.reduce_min(var), collections=collections)
     tf.summary.histogram('histogram', var, collections=collections)
 
 
@@ -181,3 +181,10 @@ def display_arr(screen, arr, video_size, transpose):
     pyg_img = pygame.transform.scale(pyg_img, video_size)
     screen.blit(pyg_img, (0, 0))
 
+
+
+if __name__ == "__main__":
+    from Utils import Fetch_trajectories
+    from agent import Agent
+    agent = Agent("pong", "/Users/charlesdognin/Desktop/Imitation_Learning/pong", 0)
+    Fetch_trajectories(agent, beta=1)
