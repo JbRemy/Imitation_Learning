@@ -1,9 +1,11 @@
 import numpy as np
 import gym
 
+import tensorflow as tf
 import parameters
 from Network import Neural_Network
 from Utils import Fetch_trajectories
+from agent import agent
 
 class DAGGER(object):
 
@@ -14,11 +16,13 @@ class DAGGER(object):
 
         self.env = gym.make(self.parameters["env_name"])
         self.Network = Neural_Network(game)
-        #self.agents =
+        self.agent = agent(self.env, self.data_path, self.Network)
+        self.path = self.parameters['path']
 
-    def train(self):
+    def train(self, n_iterations):
 
-        Fetch_trajectories(beta=1, algorithm='DAGGER')
+        tf.summary.FileWriter('{}/logs/train/'.format(self.path))
+        Fetch_trajectories(beta=1)
 
 
 

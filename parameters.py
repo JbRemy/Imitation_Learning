@@ -7,6 +7,8 @@ pong = {"env_name" : 'Pong-v0',
         "optimizer" : tf.train.AdamOptimizer,
         'learning_rate': 1e-3,
 
+        'path' : '/pong',
+
         "nb_agents" : 1,
         'n_actions': 2,
 

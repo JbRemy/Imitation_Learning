@@ -38,6 +38,7 @@ class Neural_Network(object):
         if game == 'pong':
             self.build_model = self._build_network_full_images
             self.placeholders = self._placeholders_full_images
+            self.predict_function = self.predicit_full_images
 
         with open('Data/{}/states.txt'.format(game), 'r') as file:
             lines = file.readlines()
@@ -55,14 +56,18 @@ class Neural_Network(object):
         :param start_time: (time) current time
         '''
 
+        writer.add
+        self.network_path = save_path
+
         print('Sarting Lap : {} Training ...')
         print(' -- Initializing network ...')
         with tf.device(device):
             with tf.name_scope('Inputs'):
                 X, y, training = self.placeholders(self.n_input_features, self.n_actions)
 
-            network = self.build_model(X, self.n_input_features, self.n_hidden_layers_nodes,
-                                                                 self.n_actions, training)
+            with tf.name_scope('Layers'):
+                network = self.build_model(X, self.n_input_features, self.n_hidden_layers_nodes,
+                                                                     self.n_actions, training)
 
             with tf.name_scope('Loss'):
                 loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=network,
@@ -102,6 +107,35 @@ class Neural_Network(object):
             print(' -- Training over')
             print(' -- Model saved to : {}'.format(save_path))
 
+    def predict(self, X):
+        '''
+        predicts the ourput of the network.
+        :param X:
+        :return:
+        '''
+
+        return self.predict_function(X, self.n_input_features)
+
+
+    def predicit_full_images(self, X, n_features):
+        '''
+        Predicts the output of the network for the data stored in X_path. . For image only features.
+        :param X: (np array)
+        :param n_features: (int) Number of input features
+        :return: (np array)
+        '''
+
+        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+            saver = tf.train.import_meta_graph('{}/model.meta'.format(self.network_path))
+            saver.restore(sess, tf.train.latest_checkpoint(self.network_path))
+            graph = tf.get_default_graph()
+            X_train = graph.get_tensor_by_name('inputs/X_train:0')
+            out = graph.get_tensor_by_name('Layers/Out')
+            X_flat = X.flatten().reshape(n_features, 1)
+            action = sess.run(out, feed_dict={X_train: X_flat})
+            sess.close()
+
+        return action
 
     def _make_batch_full_images(self, game, Data_path, batch_size, n_features, n_actions, past_memory):
         '''
@@ -119,18 +153,12 @@ class Neural_Network(object):
             lines = choice(file.readlines(), batch_size)
 
         X_batch = np.zeros([batch_size, n_features, 1])
-        y_batch = np.zeros([batch_size, n_actions])
+        y_batch = np.zeros([batch_size, n_actions, 1])
         for _ in range(batch_size):
-            state_dict = np.load('Data/{0}/states/dict_{1}.npy'.format(game, lines[_]))
-            img_list = []
-            for _img in range(past_memory):
-                img = np.load(state_dict['image_{}.jpg'.format(_img)])
-                img_flat = img.flatten()
-                img_list.append(img_flat)
-
-            X_batch[_,:] = np.concatenate(img_list)
-            y_batch[_,:] = np.load(state_dict['action'])
-
+            img = np.load('Data/{0}/images/{1}.npy'.format(game, lines[_]))
+            X_batch[_, :, 1] = img.flatten()
+            y_batch[_, :, 1] = np.load('Data/{0}/states/{1}.npy'.format(game, lines[_]))
+            
         return X_batch, y_batch
 
 
@@ -145,13 +173,12 @@ class Neural_Network(object):
         :return: (tensor)
         '''
 
-        with tf.name_scope('Layers'):
-            hidden_out = self._linear_layer(input, n_hidden_layer_nodes, n_features, name='Hidden_Layer')
-            with tf.name_scope('Dropout'):
-                if training:
-                    hidden_out = tf.nn.dropout(hidden_out, keep_prob=0.9, name='Dropout')
+        hidden_out = self._linear_layer(input, n_hidden_layer_nodes, n_features, name='Hidden_Layer')
+        with tf.name_scope('Dropout'):
+            if training:
+                hidden_out = tf.nn.dropout(hidden_out, keep_prob=0.9, name='Dropout')
 
-            out = self._linear_layer(hidden_out, output_size, n_hidden_layer_nodes, name='Hidden_Layer')
+        out = self._linear_layer(hidden_out, output_size, n_hidden_layer_nodes, name='Output')
 
         return out
 

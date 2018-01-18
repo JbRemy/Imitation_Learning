@@ -1,26 +1,29 @@
 import numpy as np
+import tensorflow as tf
 
 
 class Agent(object):
 
-    def __init__(self, net, policy_name, agent_parameters):
-        self.policies = {"epsilon-greedy": self.epsilon_greedy}
+    def __init__(self, env, data_path, network, device='/CPU:0'):
+        '''
 
-        self.nn = deepnet
-        self.policy = self.policies[policy_name]
+        :param env:
+        :param data_path:
+        :param network_path:
+        :param device:
+        '''
+        self.env = env
+        self.data_path = data_path
+        self.device = device
+        self.Network = Network
 
-        self.epsilon = agent_parameters["epsilon"]
+    def policy(self, X):
+        '''
+        chooses the action to execute
+        :param state:
+        :return:
+        '''
 
-    def epsilon_greedy(self, state, possible_actions):
-        num_actions = possible_actions.n
-        if np.random.uniform() < self.epsilon:
-            action = possible_actions.sample()
-        else:
-            values = [self.nn.predict(state=state, action=i) for i in range(num_actions)]
-            action = np.argmax(values)
-        return action
+        return self.Network.predict(X)
 
-    def act(self, state, possible_actions):
-        return self.policy(state=state,
-                           possible_actions=possible_actions)
 

@@ -41,43 +41,47 @@ def variable_summaries(var, collections):
     tf.summary.scalar('min', tf.reduce_min(var),collections=collections)
     tf.summary.histogram('histogram', var, collections=collections)
 
-def Fetch_trajectories()
+
+def Fetch_trajectories(agent, beta, humans=True):
+
+    if humans:
+        play_expert_agent_humans(agent.env, agent.policy, agent.data_path, beta)
 
 
-def display_arr(screen, arr, video_size, transpose):
-    arr_min, arr_max = arr.min(), arr.max()
-    arr = 255.0 * (arr - arr_min) / (arr_max - arr_min)
-    pyg_img = pygame.surfarray.make_surface(arr.swapaxes(0, 1) if transpose else arr)
-    pyg_img = pygame.transform.scale(pyg_img, video_size)
-    screen.blit(pyg_img, (0, 0))
+def save_state(previous_states, action, save_path):
+    '''
+    saves staes
+    :param previous_states: (np array) current image and 3 previous one
+    :param action: (np array) action chosen by the expert
+    :param save_path: (str)
+    '''
 
-def play_expert_agent(env, agent, beta, transpose=True, fps=30, zoom=None, callback=None, keys_to_action=None, reset_env=True):
+    with open('{}/states_list.txt', 'w') as file:
+        lines = file.readlines()
+
+    state_number = int(lines[len(lines)][-1])+1
+    np.save('{}/images/{}'.format(save_path, state_number), previous_states)
+    np.save('{}/actions/{}'.format(save_path, state_number), action)
+
+
+def play_expert_agent_humans(env, agent_policy, data_set_path, beta, transpose=True, fps=30, zoom=None, callback=None, keys_to_action=None):
     '''
     This function is an adaptation of the gym.utils.play function that allows the agent to play in place of the expert,
     and to save the states.
     :param env: (gym.Env)
-    :param agent: (agent.py)
+    :param agent_policy: (network.predict)
+    :param data_set_path: (str)
     :param proba: (float) proba to fetch expert
     :param transpose: (Boolean) If True the output of observation is transposed.
     :param fps: (int) frames per seconds
     :param zoom: (float) Make screen edge this many times bigger
-    :param callback: lambda or None
-        Callback if a callback is provided it will be executed after
-        every step. It takes the following input:
-            obs_t: observation before performing action
-            obs_tp1: observation after performing action
-            action: action that was executed
-            rew: reward that was received
-            done: whether the environemnt is done or not
-            info: debug info
+    :param callback: here we use callback to save the trajectory
     :param keys_to_action: (dict)
             {
                 # ...
                 sorted(ord('w'), ord(' ')) -> 2
                 # ...
             }
-    :param reset_env: (Bollean) if True the env is reset at the begining of the game.
-    :return:
     '''
 
     obs_s = env.observation_space
@@ -107,16 +111,16 @@ def play_expert_agent(env, agent, beta, transpose=True, fps=30, zoom=None, callb
 
     pressed_keys = []
     running = True
-    env_done = reset_env
+    env_done = True
 
     screen = pygame.display.set_mode(video_size)
     clock = pygame.time.Clock()
 
     while running:
-
         if env_done:
             env_done = False
             obs = env.reset()
+            previous_obs = np.stack([obs for _ in range(4)])
 
         else:
             u = uniform()
@@ -124,25 +128,26 @@ def play_expert_agent(env, agent, beta, transpose=True, fps=30, zoom=None, callb
                 action = keys_to_action[tuple(sorted(pressed_keys))]
 
             else:
-                agent.choose_action(previous_obs)
+                action = agent_policy(previous_obs)
+                obs, rew, env_done, info = env.step(action)
+                action = keys_to_action[tuple(sorted(pressed_keys))]
 
-            previous_obs = [4, _, _, C]
-                        
-            previous_obs[2,_,_] = previous_obs[1,_,_]
-            previous_obs[1, _, _] = previous_obs[0, _, _]
-            previous_obs[1, _, _] = previous_obs[0, _, _]
-            prev_obs = obs
-            obs, rew, env_done, info = env.step(action)
-            previous_obs[0, _, _] = [obs]
+
+            previous_obs[3, :, :, :] = previous_obs[2, :, :, :]
+            previous_obs[2, :, :, :] = previous_obs[1, :, :, :]
+            previous_obs[1, :, :, :] = previous_obs[0, :, :, :]
+            previous_obs[0, :, :, :] = obs
 
             if callback is not None:
-                callback(prev_obs, obs, action, rew, env_done, info)
+                callback(previous_obs, action, data_set_path)
 
         if obs is not None:
             if len(obs.shape) == 2:
                 obs = obs[:, :, None]
+
             if obs.shape[2] == 1:
                 obs = obs.repeat(3, axis=2)
+
             display_arr(screen, obs, transpose=transpose, video_size=video_size)
 
         # process pygame events
@@ -166,4 +171,12 @@ def play_expert_agent(env, agent, beta, transpose=True, fps=30, zoom=None, callb
         pygame.display.flip()
         clock.tick(fps)
     pygame.quit()
+
+
+def display_arr(screen, arr, video_size, transpose):
+    arr_min, arr_max = arr.min(), arr.max()
+    arr = 255.0 * (arr - arr_min) / (arr_max - arr_min)
+    pyg_img = pygame.surfarray.make_surface(arr.swapaxes(0, 1) if transpose else arr)
+    pyg_img = pygame.transform.scale(pyg_img, video_size)
+    screen.blit(pyg_img, (0, 0))
 
