@@ -3,8 +3,8 @@ import gym
 
 import tensorflow as tf
 import parameters
-from Network import Neural_Network
-from Utils import Fetch_trajectories
+from network import Neural_Network
+from utils import Fetch_trajectories
 from agent import Agent
 import time
 
