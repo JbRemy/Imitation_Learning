@@ -5,7 +5,7 @@ import tensorflow as tf
 import parameters
 from Network import Neural_Network
 from Utils import Fetch_trajectories
-from agent import agent
+from agent import Agent
 
 class DAGGER(object):
 
@@ -15,8 +15,8 @@ class DAGGER(object):
         self.parameters = getattr(parameters, game)
 
         self.env = gym.make(self.parameters["env_name"])
-        self.Network = Neural_Network(game)
-        self.agent = agent(self.env, self.data_path, self.Network)
+        self.Network = Neural_Network(game, self.training_lap)
+        self.agent = Agent(self.env, self.data_path, self.Network)
         self.path = self.parameters['path']
 
     def train(self, n_iterations):

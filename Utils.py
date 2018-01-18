@@ -42,7 +42,7 @@ def variable_summaries(var, collections):
     tf.summary.histogram('histogram', var, collections=collections)
 
 
-def Fetch_trajectories(agent, beta, humans=True):
+def Fetch_trajectories(agent, beta=1, humans=True):
 
     if humans:
         play_expert_agent_humans(agent.env, agent.policy, agent.data_path, beta)
@@ -64,7 +64,8 @@ def save_state(previous_states, action, save_path):
     np.save('{}/actions/{}'.format(save_path, state_number), action)
 
 
-def play_expert_agent_humans(env, agent_policy, data_set_path, beta, transpose=True, fps=30, zoom=None, callback=None, keys_to_action=None):
+def play_expert_agent_humans(env, agent_policy, data_set_path, beta, transpose=True, fps=130, zoom=5, callback=None,
+                             keys_to_action=None):
     '''
     This function is an adaptation of the gym.utils.play function that allows the agent to play in place of the expert,
     and to save the states.
