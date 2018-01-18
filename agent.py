@@ -3,7 +3,7 @@ import numpy as np
 
 class Agent(object):
 
-    def __init__(self, deepnet, policy_name, agent_parameters):
+    def __init__(self, net, policy_name, agent_parameters):
         self.policies = {"epsilon-greedy": self.epsilon_greedy}
 
         self.nn = deepnet

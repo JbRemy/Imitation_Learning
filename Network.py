@@ -10,12 +10,13 @@ import time
 
 from Utils import variable_summaries
 
-class Neural_Network():
+class Neural_Network(object):
 
-    def __init__(self, game):
+    def __init__(self, game, training_lap):
         '''
         Initialises Neural Network parameters, based on the game parameters
         :param game: (str) the game to be played
+        :param training_lap: (int) the iteration in SMILE or DAGGER
         '''
         self.game = game
         self.parameters = getattr(parameters, game)
@@ -42,13 +43,14 @@ class Neural_Network():
             lines = file.readlines()
             self.set_size = len(lines)
 
+        self.training_lap = training_lap
 
-    def fit(self, device, save_path, training_lap, writer, start_time):
+    def fit(self, device, Data_path, save_path, writer, start_time):
         '''
         Fits the Network to the set currently in Data/$game
         :param device: (str) '/GPU:0' or '/CPU:0'
+        :param Data_path: (str) path towerds the training set
         :param save_path: (str) path to save the trained model, learning curves are to be saved with the global writer
-        :param training_lap: (int) the iteration in SMILE or DAGGER
         :param writer: (tf.summary.FileWriter) the global file writer that saves all learning curves
         :param start_time: (time) current time
         '''
@@ -59,13 +61,14 @@ class Neural_Network():
             with tf.name_scope('Inputs'):
                 X, y, training = self.placeholders(self.n_input_features, self.n_actions)
 
-            network = self.build_model(X, self.n_input_features, self.n_hidden_layers_nodes, self.n_actions, training)
+            network = self.build_model(X, self.n_input_features, self.n_hidden_layers_nodes,
+                                                                 self.n_actions, training)
 
             with tf.name_scope('Loss'):
                 loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=network,
                                                                               name='Entropy'), name='Reduce_mean')
-                tf.summary.scalar('loss', loss, collections=['train_{}'.format(training_lap)])
-                merged_summary = tf.summary.merge_all('train')
+                tf.summary.scalar('loss', loss, collections=['train_{}'.format(self.training_lap)])
+                merged_summary = tf.summary.merge_all('train_{}'.format(self.training_lap))
 
             with tf.name_scope('Optimizer'):
                 optimizer = self.optimizer(self.learning_rate)
@@ -79,7 +82,8 @@ class Neural_Network():
                 sess.run(init, {training: True})
                 for epoch in range(self.n_epochs):
                     for batch_number in range(int(self.set_size/self.batch_size)):
-                        X_batch, y_batch =  self._make_batch_full_images(self.game, self.batch_size, self.n_features, self.n_actions, self.past_memory)
+                        X_batch, y_batch =  self._make_batch_full_images(self.game, Data_path, self.batch_size,
+                                                                         self.n_input_features, self.n_actions, self.past_memory)
                         cost = 0
                         for ind in range(self.batch_size):
                             _, c, summary = sess.run([minimizer, loss, merged_summary], feed_dict={X: X_batch[ind, :], y: y_batch[ind, :]})
@@ -87,6 +91,7 @@ class Neural_Network():
 
                         if batch_number % 100 == 0:
                             writer.add_summary(summary, batch_number + epoch * int(self.set_size/self.batch_size))
+                            writer.add_summary(summary, batch_number + epoch * int(self.set_size / self.batch_size))
                             print(' |-- Epoch {0} Batch {1} done ({2}) :'.format(epoch, batch_number, time.strftime("%H:%M:%S",
                                                                                     time.gmtime(time.time() - start_time))))
                             print(' |--- Avg cost = {}'.format(cost/self.batch_size))
@@ -98,10 +103,11 @@ class Neural_Network():
             print(' -- Model saved to : {}'.format(save_path))
 
 
-    def _make_batch_full_images(self, game, batch_size, n_features, n_actions, past_memory):
+    def _make_batch_full_images(self, game, Data_path, batch_size, n_features, n_actions, past_memory):
         '''
         Makes a batch from the currently saved data set. For image only features.
         :param game: (str) the game to be played
+        :param Data_path: (str) the path towards the training set
         :param batch_size: (int) the size of the batch to make
         :param n_features: (int) number of input features
         :param n_actions: (int) number of output features
@@ -109,7 +115,7 @@ class Neural_Network():
         :return: (np array) (np array)
         '''
 
-        with open('Data/{}/states.txt'.format(game), 'r') as file:
+        with open('{}/{}/states.txt'.format(Data_path, game), 'r') as file:
             lines = choice(file.readlines(), batch_size)
 
         X_batch = np.zeros([batch_size, n_features, 1])
@@ -162,18 +168,18 @@ class Neural_Network():
         '''
 
         with tf.name_scope(name):
-            with tf.name_scope('Weights'):
+            with tf.name_scope('Weights', ['train_{}'.format(self.training_lap)]):
                 W =  tf.Variable(tf.truncated_normal([dim_0, dim_1], stddev=0.1), name='W')
-                variable_summaries(W)
+                variable_summaries(W, ['train_{}'.format(self.training_lap)])
                 b = tf.Variable(tf.zeros([dim_1, 1]), name='Bias_hidden')
-                variable_summaries(b)
+                variable_summaries(b, ['train_{}'.format(self.training_lap)])
 
             out_matmul = tf.matmul(W, input, name='Matmul')
             out = tf.add(out_matmul, b, name='Add')
-            tf.summary.histogram('pre_activations', out)
+            tf.summary.histogram('pre_activations', out, collections=['train_{}'.format(self.training_lap)])
             if out_layer == False:
                 out = tf.nn.relu(out, name='Relu')
-                tf.summary.histogram('post_activations', out)
+                tf.summary.histogram('post_activations', out, collections=['train_{}'.format(self.training_lap)])
 
         return out
 

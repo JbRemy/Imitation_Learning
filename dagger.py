@@ -1,19 +1,26 @@
 import numpy as np
 import gym
-from Class_NN import NeuralNetwork
+
+import parameters
+from Network import Neural_Network
+from Utils import Fetch_trajectories
 
 class DAGGER(object):
-    def __init__(self, parameters):
-        self.env = gym.make(parameters["env_name"])
-        self.deep_q_net = NeuralNetwork(batch_size=parameters['batch_size'],
-                              optimizer=parameters["optimizer"],
-                              input_shape=parameters["input_shape"])
-        self.agents = [Agent(deepnet=self.deep_q_net,
-                             policy_name="epsilon-greedy",
-                             agent_parameters=parameters["agent_parameters"])
-                       for _ in range(parameters["nb_agents"])]
-        self.input_shape = parameters["input_shape"]
-        self.gamma = parameters["gamma"]
+
+    def __init__(self, game):
+
+        self.game = game
+        self.parameters = getattr(parameters, game)
+
+        self.env = gym.make(self.parameters["env_name"])
+        self.Network = Neural_Network(game)
+        #self.agents =
+
+    def train(self):
+
+        Fetch_trajectories(beta=1, algorithm='DAGGER')
+
+
 
     def run_episodes(self, agent, nb_episodes):
         for i in range(nb_episodes):
