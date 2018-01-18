@@ -13,7 +13,10 @@ from Utils import variable_summaries
 class Neural_Network():
 
     def __init__(self, game):
-
+        '''
+        Initialises Neural Network parameters, based on the game parameters
+        :param game: (str) the game to be played
+        '''
         self.game = game
         self.parameters = getattr(parameters, game)
 
@@ -39,7 +42,16 @@ class Neural_Network():
             lines = file.readlines()
             self.set_size = len(lines)
 
+
     def fit(self, device, save_path, training_lap, writer, start_time):
+        '''
+        Fits the Network to the set currently in Data/$game
+        :param device: (str) '/GPU:0' or '/CPU:0'
+        :param save_path: (str) path to save the trained model, learning curves are to be saved with the global writer
+        :param training_lap: (int) the iteration in SMILE or DAGGER
+        :param writer: (tf.summary.FileWriter) the global file writer that saves all learning curves
+        :param start_time: (time) current time
+        '''
 
         print('Sarting Lap : {} Training ...')
         print(' -- Initializing network ...')
@@ -59,27 +71,43 @@ class Neural_Network():
                 optimizer = self.optimizer(self.learning_rate)
                 minimizer = optimizer.minimize(loss)
 
-        print(' -- Network initialized')
-        print(' -- Starting training ...')
-        saver = tf.train.Saver()
-        init = tf.global_variables_initializer()
-        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) as sess:
-            sess.run(init, {training: True})
-            for epoch in range(self.n_epochs):
-                for batch_number in range(int(self.set_size/self.batch_size)):
-                    X_batch, y_batch =  self._make_batch_full_images(self.game, self.batch_size, self.n_features, self.n_actions, self.past_memory)
-                    _, c, summary = sess.run([minimizer, loss, merged_summary], feed_dict={X: X_batch, y: y_batch})
-                    if batch_number % 100 == 0:
-                        writer.add_summary(summary, batch_number + epoch * int(self.set_size/self.batch_size))
-                        print('|-- Epoch {0} Batch {1} done ({2}) :'.format(epoch, batch_number, time.strftime("%H:%M:%S",
-                                                                                time.gmtime(time.time() - start_time))))
-            saver.save(sess, save_path)
-            sess.close()
-            tf.reset_default_graph()
+            print(' -- Network initialized')
+            print(' -- Starting training ...')
+            saver = tf.train.Saver()
+            init = tf.global_variables_initializer()
+            with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) as sess:
+                sess.run(init, {training: True})
+                for epoch in range(self.n_epochs):
+                    for batch_number in range(int(self.set_size/self.batch_size)):
+                        X_batch, y_batch =  self._make_batch_full_images(self.game, self.batch_size, self.n_features, self.n_actions, self.past_memory)
+                        cost = 0
+                        for ind in range(self.batch_size):
+                            _, c, summary = sess.run([minimizer, loss, merged_summary], feed_dict={X: X_batch[ind, :], y: y_batch[ind, :]})
+                            cost += c
+
+                        if batch_number % 100 == 0:
+                            writer.add_summary(summary, batch_number + epoch * int(self.set_size/self.batch_size))
+                            print(' |-- Epoch {0} Batch {1} done ({2}) :'.format(epoch, batch_number, time.strftime("%H:%M:%S",
+                                                                                    time.gmtime(time.time() - start_time))))
+                            print(' |--- Avg cost = {}'.format(cost/self.batch_size))
+
+                saver.save(sess, save_path)
+                sess.close()
+
             print(' -- Training over')
             print(' -- Model saved to : {}'.format(save_path))
 
+
     def _make_batch_full_images(self, game, batch_size, n_features, n_actions, past_memory):
+        '''
+        Makes a batch from the currently saved data set. For image only features.
+        :param game: (str) the game to be played
+        :param batch_size: (int) the size of the batch to make
+        :param n_features: (int) number of input features
+        :param n_actions: (int) number of output features
+        :param past_memory: (int) number of images to take before the state
+        :return: (np array) (np array)
+        '''
 
         with open('Data/{}/states.txt'.format(game), 'r') as file:
             lines = choice(file.readlines(), batch_size)
@@ -99,7 +127,17 @@ class Neural_Network():
 
         return X_batch, y_batch
 
+
     def _build_network_full_images(self, input, n_features, n_hidden_layer_nodes, output_size, training):
+        '''
+        Builds a one layer neural network. For image only features.
+        :param input: (tensor)
+        :param n_features: (int)
+        :param n_hidden_layer_nodes: (int) number of nodes in the hidden layer
+        :param output_size: (int)
+        :param training: (Boolean) if training dropout is activated
+        :return: (tensor)
+        '''
 
         with tf.name_scope('Layers'):
             hidden_out = self._linear_layer(input, n_hidden_layer_nodes, n_features, name='Hidden_Layer')
@@ -113,6 +151,15 @@ class Neural_Network():
 
 
     def _linear_layer(self, input, dim_0, dim_1, name='', out_layer=False):
+        '''
+        Builds a linear layer
+        :param input: (tensor)
+        :param dim_0: (int)
+        :param dim_1: (int)
+        :param name: (str) name of the layer
+        :param out_layer: (Boolean) if True, no activation
+        :return: (tensor)
+        '''
 
         with tf.name_scope(name):
             with tf.name_scope('Weights'):
@@ -130,9 +177,16 @@ class Neural_Network():
 
         return out
 
-    def _placeholders_full_images(self, n_input_features, n_actions):
 
-        X = tf.placeholder(dtype='float32', shape=[n_input_features, 1], name='X_train')
+    def _placeholders_full_images(self, n_features, n_actions):
+        '''
+        Creates placeholders. For image only features.
+        :param n_features: (int)
+        :param n_actions:  (int)
+        :return: (tensor) (tensor) (tensor)
+        '''
+
+        X = tf.placeholder(dtype='float32', shape=[n_features, 1], name='X_train')
         y = tf.placeholder(dtype='float32', shape=[n_actions, 1], name='y_train')
         training = tf.placeholder(dtype=tf.bool, shape=())
 
