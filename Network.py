@@ -158,7 +158,7 @@ class Neural_Network(object):
             img = np.load('Data/{0}/images/{1}.npy'.format(game, lines[_]))
             X_batch[_, :, 1] = img.flatten()
             y_batch[_, :, 1] = np.load('Data/{0}/states/{1}.npy'.format(game, lines[_]))
-            
+
         return X_batch, y_batch
 
 
