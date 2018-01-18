@@ -20,11 +20,13 @@ To implement the algorithm we use python and the <a href="https://github.com/bzi
 Repo architecture :
 - <span style="color:green"> Algorithms.py</span> (SMILE DAGGER)
 - <span style="color:red"> Data</span>
-    - images (.npy)
-    - actions (.npy)
-    - states (.txt)
-- <span style="color:green"> Deep_net.py</span>
+    - game
+        - images (.npy)
+        - actions (.npy)
+        - states_list (.txt)
+        - states (.npy)
 - <span style="color:green"> main.py</span>
 - <span style="color:red"> Models</span>
     - saved models
+- <span style="color:green"> Network.py</span>
 - <span style="color:green"> Utils.py</span>
