@@ -40,12 +40,12 @@ class Agent(object):
             out = graph.get_tensor_by_name('Lap_{}/Layers/Output/Add:0'.format(lap))
 
             if plot_rew:
-                def callback(obs_t, rew, cum_rew, done, info):
+                def callback(obs_t, obs_tp1, action, rew, done, info, cum_rew):
                     return [cum_rew, ]
 
                 env_plotter = PlayPlot(callback, 30 * 5, ["reward"])
                 play_expert_agent_humans(self.env, lambda x: self.policy(x, sess, X_train, keep_prob, out),
-                                         self.n_actions, beta=0, transpose=True, fps=20, zoom=3,
+                                         self.n_actions, '', beta=0, transpose=True, fps=20, zoom=3,
                                          callback=None, callback_2=env_plotter.callback,
                                          keys_to_action=self.keys_to_action,
                                          action_list=self.list_action)
