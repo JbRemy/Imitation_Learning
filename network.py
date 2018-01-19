@@ -32,7 +32,7 @@ class Neural_Network(object):
         self.n_hidden_layers_nodes = self.parameters['n_hidden_layers_nodes']
         self.optimizer = self.parameters['optimizer']
 
-        self.n_input_features = int(self.input_H*self.input_W/6)*self.input_C*4
+        self.n_input_features = int(self.input_H/2)*int(self.input_W/2)*self.n_hidden_layers_nodes
 
         if game == 'pong' or game == 'CarRacing':
             self.build_model = self._build_network_full_images
@@ -68,15 +68,14 @@ class Neural_Network(object):
                                                                          self.n_actions, lap)
 
                 with tf.name_scope('Loss'):
-                    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=network,
-                                                                                  name='Entropy'), name='Reduce_mean')
+                    loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(onehot_labels=y, logits=network), name='Reduce_mean')
                     tf.summary.scalar('loss', loss, collections=['train'], family='Lap_{}'.format(lap))
                     merged_summary = tf.summary.merge_all('train')
 
                 with tf.name_scope('Optimizer'):
                     global_step = tf.Variable(0, trainable=False)
                     learning_rate_decay = tf.train.exponential_decay(self.learning_rate, global_step,
-                                                                     1000, 0.5, staircase=True, name='Learning_Rate')
+                                                                     100000, 0.9, staircase=True, name='Learning_Rate')
                     optimizer = self.optimizer(learning_rate_decay)
                     minimizer = optimizer.minimize(loss)
 
@@ -93,7 +92,7 @@ class Neural_Network(object):
                     sess.run(init)
                     for epoch in range(self.n_epochs):
                         for batch_number in range(int(self.set_size/self.batch_size)):
-                            X_batch, y_batch =  self._make_batch_full_images(self.game, Data_path, self.batch_size, self.n_actions)
+                            X_batch, y_batch =  self._make_batch_full_images(Data_path, self.batch_size, self.n_actions)
                             cost = 0
                             for ind in range(self.batch_size):
                                 X_temp[0, :, :, :] = X_batch[ind, :, :, :]
@@ -170,9 +169,12 @@ class Neural_Network(object):
         :return: (tensor)
         '''
 
-        pooled = tf.layers.max_pooling2d(input, pool_size=(3, 2), strides=(3, 2), name='Max_Pooling_layer',)
+        conv = tf.layers.conv2d(input, filters=n_hidden_layer_nodes, kernel_size=5, name='Convolution')
+        conv_norm = tf.contrib.layers.batch_norm(conv)
+        pooled = tf.layers.max_pooling2d(conv_norm, pool_size=2, strides=2, name='Max_Pooling_layer',)
         flat_pooled = tf.contrib.layers.flatten(pooled)
-        hidden_out = self._linear_layer(flat_pooled, n_features, n_hidden_layer_nodes, name='Hidden_Layer')
+        print(flat_pooled.get_shape().as_list()[1])
+        hidden_out = self._linear_layer(flat_pooled, flat_pooled.get_shape().as_list()[1], n_hidden_layer_nodes, name='Hidden_Layer')
         with tf.name_scope('Dropout'):
             hidden_out = tf.nn.dropout(hidden_out, keep_prob=keep_prob, name='Dropout')
 
@@ -222,6 +224,41 @@ class Neural_Network(object):
         keep_prob = tf.placeholder(tf.float32, name='Keep_Prob')
 
         return X, y, keep_prob
+
+
+    def eval(self, Network_path, size, lap):
+        '''
+        Evaluates the accuracy of the trained network
+        :param Network_path: (str)
+        :param size: (int) number of testing individuals
+        :param lap: (int) wich lap to test
+        :return: (float) accuraxy
+        '''
+        count = 0
+        acc = 0
+        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+            saver = tf.train.import_meta_graph('{}/model.ckpt.meta'.format(Network_path))
+            saver.restore(sess, tf.train.latest_checkpoint(Network_path))
+            graph = tf.get_default_graph()
+            X_train = graph.get_tensor_by_name('Lap_{}/Inputs/X_train:0'.format(lap))
+            y = graph.get_tensor_by_name('Lap_{}/Inputs/y_train:0'.format(lap))
+            keep_prob = graph.get_tensor_by_name('Lap_{}/Inputs/Keep_Prob:0'.format(lap))
+            output = graph.get_tensor_by_name('Lap_{}/Layers/Output/Add:0'.format(lap))
+            X_temp = np.zeros((1, self.input_W, self.input_H, self.input_C * 4))
+            for batch_number in range(size):
+                X_batch, y_batch = self._make_batch_full_images('pong', self.batch_size, self.n_actions)
+                for ind in range(self.batch_size):
+                    X_temp[0, :, :, :] = X_batch[ind, :, :, :]
+                    res = sess.run(output, feed_dict={X_train: X_temp, keep_prob: 1})
+                    out = np.argmax(res)
+                    if out == np.argmax(y_batch[0,:,:]):
+                        acc += 1
+
+                    count += 1
+
+            sess.close()
+
+            return acc/count, count
 
 if __name__=="__main__":
     net = Neural_Network('pong')
