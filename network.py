@@ -13,7 +13,7 @@ from utils import variable_summaries
 
 class Neural_Network(object):
 
-    def __init__(self, game):
+    def __init__(self, game, network_path=None):
         '''
         Initialises Neural Network parameters, based on the game parameters
         :param game: (str) the game to be played
@@ -39,6 +39,9 @@ class Neural_Network(object):
             self.build_model = self._build_network_full_images
             self.placeholders = self._placeholders_full_images
             self.predict_function = self.predicit_full_images
+
+        if isinstance(network_path, str):
+            self.network_path = network_path
 
 
     def fit(self, device, Data_path, save_path, writer, start_time, lap):
@@ -107,7 +110,7 @@ class Neural_Network(object):
                     saver.save(sess, save_path)
                     sess.close()
 
-            writer.add_summary(acc, lap)
+            #writer.add_summary(acc, lap)
             print(' -- Training over')
             print(' -- Model saved to : {}'.format(save_path))
 
@@ -119,8 +122,7 @@ class Neural_Network(object):
         '''
 
         res = self.predict_function(X, self.n_input_features)
-        out = np.zeros(res.shape)
-        out[np.argmax(res)] = 1
+        out = np.argmax(res)
 
         return out
 
@@ -138,9 +140,10 @@ class Neural_Network(object):
             saver.restore(sess, tf.train.latest_checkpoint(self.network_path))
             graph = tf.get_default_graph()
             X_train = graph.get_tensor_by_name('inputs/X_train:0')
+            keep_prob = graph.get_tensor_by_name('inputs/Keep_Prob')
             out = graph.get_tensor_by_name('Layers/Out')
-            X_flat = X.flatten().reshape(n_features, 1)
-            res = sess.run(out, feed_dict={X_train: X_flat})
+            X_flat = X.flatten().reshape(1, n_features)
+            res = sess.run(out, feed_dict={X_train: X_flat, keep_prob: 1})
             sess.close()
 
         return res.eval()

@@ -35,4 +35,27 @@ class DAGGER(object):
         writer.close()
 
 
+if __name__ == '__main__':
+    '''
+    The following was used to locally update the data set, and then train each iterations on a remote Azure VM
+    '''
+    # to exec in local
+    lap = 0
+    net = Neural_Network('pong', network_path='{0}/Model_{1}'.format('pong', lap-1)) # if lap > 0
+    agent = Agent("pong", "pong", net)
+    Fetch_trajectories(agent, beta=0.6**lap)
 
+    # to update data_set on VM (exec on VM)
+    # sudo rm -r /home/jbremy/Imitation_Learning/pong/images
+    # sudo scp -r charlesdognin@2a01:cb04:507:800:e51d:98c7:6eed:a687 /home/desktop/Imitation_Learning/pong/images/ /home/jbremy/Imitation_Learning/pong/images/
+    # sudo rm -r /home/jbremy/Imitation_Learning/pong/actions
+    # sudo scp -r charlesdognin@2a01:cb04:507:800:e51d:98c7:6eed:a687:/home/desktop/Imitation_Learning/pong/actions/ /home/jbremy/Imitation_Learning/pong/actions/
+
+    # to exec in VM
+    writer = tf.summary.FileWriter('{0}/Model_{1}/logs/train/'.format('pong', lap))
+    net = Neural_Network('pong')
+    net.fit('/GPU:0', Data_path='pong', save_path="pong/Model_{}".format(lap), writer=writer, start_time=time.time(), lap=lap)
+    writer.close()
+
+    # update network in local
+    # sudo scp -r jbremy@40.65.114.58:/home/jbremy/Imitation_Learning/pong/Model_!!!!lap/ /home/desktop/Imitation_Learning/pong/Model_!!!!lap/

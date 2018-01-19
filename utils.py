@@ -49,7 +49,7 @@ def Fetch_trajectories(agent, beta=1, humans=True, keys_to_action=None):
 
     if humans:
         play_expert_agent_humans(agent.env, agent.policy, agent.data_path, beta,
-                                 callback=save_state, keys_to_action=keys_to_action)
+                                 callback=save_state, keys_to_action=keys_to_action, action_list=agent.list_action)
 
 
 def save_state(previous_states, action, save_path):
@@ -70,7 +70,7 @@ def save_state(previous_states, action, save_path):
 
 
 def play_expert_agent_humans(env, agent_policy, data_set_path, beta, transpose=True, fps=20, zoom=3, callback=None,
-                             keys_to_action=None):
+                             keys_to_action=None, action_list = []):
     '''
     This function is an adaptation of the gym.utils.play function that allows the agent to play in place of the expert,
     and to save the states.
@@ -136,19 +136,18 @@ def play_expert_agent_humans(env, agent_policy, data_set_path, beta, transpose=T
                 action = keys_to_action[tuple(sorted(pressed_keys))]
                 print(action)
                 obs, rew, env_done, info = env.step(action)
-                action_out = np.zeros((3, 1))
-                if action == 0:
-                    action_out[action] = 1
-                else:
-                    action_out[action-1] = 1
-
 
             else:
-                action = agent_policy(previous_obs)
-                obs, rew, env_done, info = env.step(np.argmax(action))
+                action = action_list[agent_policy(previous_obs)]
+                obs, rew, env_done, info = env.step(action)
                 action = keys_to_action[tuple(sorted(pressed_keys))]
-                action_out = np.zeros((3, 1))
-                action_out[int(action/2)] = 1
+
+            action_out = np.zeros((3, 1))
+            if action == 0:
+                action_out[action] = 1
+
+            else:
+                action_out[action - 1] = 1
 
             previous_obs[3, :, :, :] = previous_obs[2, :, :, :]
             previous_obs[2, :, :, :] = previous_obs[1, :, :, :]
