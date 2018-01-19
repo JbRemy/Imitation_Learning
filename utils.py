@@ -11,16 +11,12 @@ import gym
 import pygame
 import sys
 import time
+import matplotlib.pyplot as plt
 import matplotlib
 import numpy as np
 from numpy.random import uniform
 from skimage.measure import block_reduce
-
-try:
-    matplotlib.use('GTK3Agg')
-    import matplotlib.pyplot as plt
-except Exception:
-    pass
+import time
 
 from collections import deque
 from pygame.locals import HWSURFACE, DOUBLEBUF, RESIZABLE, VIDEORESIZE
@@ -45,7 +41,7 @@ def variable_summaries(var, collections, family):
     tf.summary.histogram('histogram', var, collections=collections)
 
 
-def Fetch_trajectories(agent, beta=1):
+def Fetch_trajectories(agent, lap, beta=1):
     '''
     Fetch trajectories from a mix of the expert and the learned policy
     :param agent: (agent.agent)
@@ -58,16 +54,16 @@ def Fetch_trajectories(agent, beta=1):
 
     else:
         with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-            saver = tf.train.import_meta_graph('{}/model.meta'.format(self.network_path))
-            saver.restore(sess, tf.train.latest_checkpoint(self.network_path))
+            saver = tf.train.import_meta_graph('{}/model.ckpt.meta'.format(agent.Network.network_path))
+            saver.restore(sess, tf.train.latest_checkpoint(agent.Network.network_path))
             graph = tf.get_default_graph()
-            X_train = graph.get_tensor_by_name('inputs/X_train:0')
-            keep_prob = graph.get_tensor_by_name('inputs/Keep_Prob')
-            out = graph.get_tensor_by_name('Layers/Out')
+            X_train = graph.get_tensor_by_name('Lap_{}/Inputs/X_train:0'.format(lap))
+            keep_prob = graph.get_tensor_by_name('Lap_{}/Inputs/Keep_Prob:0'.format(lap))
+            out = graph.get_tensor_by_name('Lap_{}/Layers/Output/Add:0'.format(lap))
 
             play_expert_agent_humans(agent.env, lambda x: agent.policy(x, sess, X_train,keep_prob, out),
-                                     agent.n_actions, beta=beta, transpose=True, fps=20, zoom=3,
-                                     callback=save_state, keys_to_action=agent.keys_to_action, action_list=agen.list_action)
+                                     agent.n_actions, agent.data_path, beta=beta, transpose=True, fps=20, zoom=3,
+                                     callback=save_state, keys_to_action=agent.keys_to_action, action_list=agent.list_action)
 
 
 def save_state(previous_states, action, save_path):
@@ -177,7 +173,7 @@ def play_expert_agent_humans(env, agent_policy, n_actions, data_set_path, beta, 
                 count += action_out
 
             if callback_2 is not None:
-                callback_2  (obs, rew, cum_rew, env_done, info)
+                callback_2(obs_t=None, obs_tp1=None, action=None, rew=None, done=None, info=None, cum_rew=cum_rew)
 
         if obs is not None:
             if len(obs.shape) == 2:
@@ -238,8 +234,8 @@ class PlayPlot(object):
         self.cur_plot = [None for _ in range(num_plots)]
         self.data     = [deque(maxlen=horizon_timesteps) for _ in range(num_plots)]
 
-    def callback(self, obs_t, obs_tp1, action, rew, done, info):
-        points = self.data_callback(obs_t, obs_tp1, action, rew, done, info)
+    def callback(self, obs_t, obs_tp1, action, rew, done, info, cum_rew):
+        points = self.data_callback(obs_t, obs_tp1, action, rew, done, info, cum_rew)
         for point, data_series in zip(points, self.data):
             data_series.append(point)
         self.t += 1
@@ -251,7 +247,7 @@ class PlayPlot(object):
                 plot.remove()
             self.cur_plot[i] = self.ax[i].scatter(range(xmin, xmax), list(self.data[i]))
             self.ax[i].set_xlim(xmin, xmax)
-        plt.pause(0.000001)
+        plt.pause(0.1)
 
 
 if __name__ == "__main__":
