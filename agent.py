@@ -20,6 +20,7 @@ class Agent(object):
         self.data_path = data_path
         self.device = device
         self.Network = Network
+        self.n_actions = self.parameters['nb_actions']
 
     def policy(self, X):
         '''
