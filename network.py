@@ -7,12 +7,13 @@ import parameters
 import numpy as np
 from numpy.random import choice
 import time
+import os
 
-from Utils import variable_summaries
+from utils import variable_summaries
 
 class Neural_Network(object):
 
-    def __init__(self, game):
+    def __init__(self, game, network_path=None):
         '''
         Initialises Neural Network parameters, based on the game parameters
         :param game: (str) the game to be played
@@ -25,7 +26,6 @@ class Neural_Network(object):
         self.input_H = self.parameters['input_H']
         self.input_C = self.parameters['input_C']
         self.n_actions = self.parameters['n_actions']
-        self.past_memory = self.parameters['past_memory']
         self.learning_rate = self.parameters['learning_rate']
         self.n_epochs = self.parameters['n_epochs']
         self.batch_size = self.parameters['batch_size']
@@ -33,16 +33,15 @@ class Neural_Network(object):
         self.n_hidden_layers_nodes = self.parameters['n_hidden_layers_nodes']
         self.optimizer = self.parameters['optimizer']
 
-        self.n_input_features = self.input_H*self.input_W*self.input_C*self.past_memory
+        self.n_input_features = self.input_H*self.input_W*self.input_C*4
 
         if game == 'pong':
             self.build_model = self._build_network_full_images
             self.placeholders = self._placeholders_full_images
             self.predict_function = self.predicit_full_images
 
-        with open('Data/{}/states.txt'.format(game), 'r') as file:
-            lines = file.readlines()
-            self.set_size = len(lines)
+        if isinstance(network_path, str):
+            self.network_path = network_path
 
 
     def fit(self, device, Data_path, save_path, writer, start_time, lap):
@@ -56,6 +55,7 @@ class Neural_Network(object):
         '''
 
         self.network_path = save_path
+        self.set_size = len(os.listdir('{}/images'.format(Data_path)))
         print('Sarting Lap : {} Training ...')
         print(' -- Initializing network ...')
         with tf.device(device):
@@ -63,11 +63,11 @@ class Neural_Network(object):
             tf.summary.scalar('accuracy', acc, family='Lap_{}'.format(lap))
             with tf.name_scope('Lap_{}'.format(lap)):
                 with tf.name_scope('Inputs'):
-                    X, y, training = self.placeholders(self.n_input_features, self.n_actions)
+                    X, y, keep_prob = self.placeholders(self.n_input_features, self.n_actions)
 
                 with tf.name_scope('Layers'):
-                    network = self.build_model(X, self.n_input_features, self.n_hidden_layers_nodes,
-                                                                         self.n_actions, training, lap)
+                    network = self.build_model(X, keep_prob, self.n_input_features, self.n_hidden_layers_nodes,
+                                                                         self.n_actions, lap)
 
                 with tf.name_scope('Loss'):
                     loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=network,
@@ -87,20 +87,20 @@ class Neural_Network(object):
 
                 saver = tf.train.Saver()
                 init = tf.global_variables_initializer()
-                with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) as sess:
-                    sess.run(init, {training: True})
+                with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+                    sess.run(init)
                     for epoch in range(self.n_epochs):
                         for batch_number in range(int(self.set_size/self.batch_size)):
                             X_batch, y_batch =  self._make_batch_full_images(self.game, Data_path, self.batch_size,
-                                                                             self.n_input_features, self.n_actions, self.past_memory)
+                                                                             self.n_input_features, self.n_actions)
                             cost = 0
                             for ind in range(self.batch_size):
-                                _, res, c, summary = sess.run([minimizer, network, loss, merged_summary], feed_dict={X: X_batch[ind, :], y: y_batch[ind, :]})
+                                _, res, c, summary = sess.run([minimizer, network, loss, merged_summary], feed_dict={X: X_batch[ind, :, :], y: y_batch[ind, :, :], keep_prob: 0.7})
                                 cost += c
                                 if np.argmax(res) == np.argmax(y_batch[_, :]):
                                     acc += 1
 
-                            if batch_number % 100 == 0:
+                            if batch_number % 10 == 0:
                                 writer.add_summary(summary, batch_number + epoch * int(self.set_size/self.batch_size))
                                 writer.add_summary(summary, batch_number + epoch * int(self.set_size / self.batch_size))
                                 print(' |-- Epoch {0} Batch {1} done ({2}) :'.format(epoch, batch_number, time.strftime("%H:%M:%S",
@@ -110,7 +110,7 @@ class Neural_Network(object):
                     saver.save(sess, save_path)
                     sess.close()
 
-            writer.add_summary(acc, lap)
+            #writer.add_summary(acc, lap)
             print(' -- Training over')
             print(' -- Model saved to : {}'.format(save_path))
 
@@ -122,8 +122,7 @@ class Neural_Network(object):
         '''
 
         res = self.predict_function(X, self.n_input_features)
-        out = np.zeros(res.shape)
-        out[np.argmax(res)] = 1
+        out = np.argmax(res)
 
         return out
 
@@ -141,14 +140,15 @@ class Neural_Network(object):
             saver.restore(sess, tf.train.latest_checkpoint(self.network_path))
             graph = tf.get_default_graph()
             X_train = graph.get_tensor_by_name('inputs/X_train:0')
+            keep_prob = graph.get_tensor_by_name('inputs/Keep_Prob')
             out = graph.get_tensor_by_name('Layers/Out')
-            X_flat = X.flatten().reshape(n_features, 1)
-            res = sess.run(out, feed_dict={X_train: X_flat})
+            X_flat = X.flatten().reshape(1, n_features)
+            res = sess.run(out, feed_dict={X_train: X_flat, keep_prob: 1})
             sess.close()
 
         return res.eval()
 
-    def _make_batch_full_images(self, game, Data_path, batch_size, n_features, n_actions, past_memory):
+    def _make_batch_full_images(self, game, Data_path, batch_size, n_features, n_actions):
         '''
         Makes a batch from the currently saved data set. For image only features.
         :param game: (str) the game to be played
@@ -160,20 +160,19 @@ class Neural_Network(object):
         :return: (np array) (np array)
         '''
 
-        with open('{}/{}/states.txt'.format(Data_path, game), 'r') as file:
-            lines = choice(file.readlines(), batch_size)
-
-        X_batch = np.zeros([batch_size, n_features, 1])
-        y_batch = np.zeros([batch_size, n_actions, 1])
-        for _ in range(batch_size):
-            img = np.load('Data/{0}/images/{1}.npy'.format(game, lines[_]))
-            X_batch[_, :, 1] = img.flatten()
-            y_batch[_, :, 1] = np.load('Data/{0}/states/{1}.npy'.format(game, lines[_]))
+        num_states = len(os.listdir('{}/images'.format(Data_path)))
+        batch_list = np.random.choice(num_states-1, batch_size)
+        X_batch = np.zeros([batch_size, 1, n_features])
+        y_batch = np.zeros([batch_size, 1, n_actions])
+        for _, i in enumerate(batch_list):
+            img = np.load('{0}/images/state_{1}.npy'.format(game, i+1))
+            X_batch[_, 0, :] = img.flatten()/255
+            y_batch[_, :, :] = np.transpose(np.load('{0}/actions/state_{1}.npy'.format(game, i+1)))
 
         return X_batch, y_batch
 
 
-    def _build_network_full_images(self, input, n_features, n_hidden_layer_nodes, output_size, training, lap):
+    def _build_network_full_images(self, input, keep_prob, n_features, n_hidden_layer_nodes, output_size, lap):
         '''
         Builds a one layer neural network. For image only features.
         :param input: (tensor)
@@ -184,12 +183,11 @@ class Neural_Network(object):
         :return: (tensor)
         '''
 
-        hidden_out = self._linear_layer(input, n_hidden_layer_nodes, n_features, name='Hidden_Layer')
+        hidden_out = self._linear_layer(input, n_features, n_hidden_layer_nodes, name='Hidden_Layer')
         with tf.name_scope('Dropout'):
-            if training:
-                hidden_out = tf.nn.dropout(hidden_out, keep_prob=0.9, name='Dropout')
+            hidden_out = tf.nn.dropout(hidden_out, keep_prob=keep_prob, name='Dropout')
 
-        out = self._linear_layer(hidden_out, output_size, n_hidden_layer_nodes, name='Output', lap=lap)
+        out = self._linear_layer(hidden_out, n_hidden_layer_nodes, output_size, name='Output', lap=lap)
 
         return out
 
@@ -209,10 +207,10 @@ class Neural_Network(object):
             with tf.name_scope('Weights'):
                 W =  tf.Variable(tf.truncated_normal([dim_0, dim_1], stddev=0.1), name='W')
                 variable_summaries(W, ['train'], family='Lap_{}'.format(lap))
-                b = tf.Variable(tf.zeros([dim_1, 1]), name='Bias_hidden')
+                b = tf.Variable(tf.zeros([1, dim_1]), name='Bias_hidden')
                 variable_summaries(b, ['train'], family='Lap_{}'.format(lap))
 
-            out_matmul = tf.matmul(W, input, name='Matmul')
+            out_matmul = tf.matmul(input, W, name='Matmul')
             out = tf.add(out_matmul, b, name='Add')
             tf.summary.histogram('pre_activations', out, collections=['train'], family='Lap_{}'.format(lap))
             if out_layer == False:
@@ -230,8 +228,14 @@ class Neural_Network(object):
         :return: (tensor) (tensor) (tensor)
         '''
 
-        X = tf.placeholder(dtype='float32', shape=[n_features, 1], name='X_train')
-        y = tf.placeholder(dtype='float32', shape=[n_actions, 1], name='y_train')
-        training = tf.placeholder(dtype=tf.bool, shape=())
+        X = tf.placeholder(dtype='float32', shape=[1, n_features], name='X_train')
+        y = tf.placeholder(dtype='float32', shape=[1, n_actions], name='y_train')
+        keep_prob = tf.placeholder(tf.float32, name='Keep_Prob')
 
-        return X, y, training
+        return X, y, keep_prob
+
+if __name__=="__main__":
+    net = Neural_Network('pong')
+    writer = tf.summary.FileWriter('pong/Model/logs/train/')
+    net.fit('/CPU:0', Data_path="pong", save_path="pong/Model", writer=writer, start_time=time.time(), lap=0)
+    writer.close()
