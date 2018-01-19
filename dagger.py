@@ -40,9 +40,10 @@ if __name__ == '__main__':
     The following was used to locally update the data set, and then train each iterations on a remote Azure VM
     '''
     # to exec in local
-    lap = 0
+    lap = 1
     net = Neural_Network('pong', network_path='{0}/Model_{1}'.format('pong', lap-1)) # if lap > 0
-    agent = Agent("pong", "pong", net)
+    agent = Agent("CarRacing", "pong", net)
+    agent.play()
     Fetch_trajectories(agent, beta=0.6**lap)
 
     # to update data_set on VM (exec on VM)

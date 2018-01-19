@@ -158,12 +158,12 @@ def play_expert_agent_humans(env, agent_policy, n_actions, data_set_path, beta, 
 
             else:
                 action = action_list[agent_policy(previous_obs)]
+                print(action)
                 obs, rew, env_done, info = env.step(action)
                 action = keys_to_action[tuple(sorted(pressed_keys))]
 
             action_out = np.zeros((n_actions, 1))
             action_out[np.array(action_list) == action, :] = 1
-            #print(action_out)
 
             previous_obs[3, :, :, :] = previous_obs[2, :, :, :]
             previous_obs[2, :, :, :] = previous_obs[1, :, :, :]
