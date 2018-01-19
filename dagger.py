@@ -3,8 +3,8 @@ import gym
 
 import tensorflow as tf
 import parameters
-from Network import Neural_Network
-from Utils import Fetch_trajectories
+from network import Neural_Network
+from utils import Fetch_trajectories
 from agent import Agent
 import time
 
@@ -31,8 +31,7 @@ class DAGGER(object):
             with open('{}/list.txt', 'r') as file:
                 data_set_size = len(file.readlines())
             Fetch_trajectories(self.agent, beta=self.beta**lap)
-            self.Neural_Network.fit(self.device, self.path, '{}/Model_{}'.format(self.path, lap), writer, time.time(), lap)
-
+            self.Network.fit(self.device, self.path, '{}/Model_{}'.format(self.path, lap), writer, time.time(), lap)
         writer.close()
 
 
