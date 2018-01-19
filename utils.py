@@ -45,11 +45,29 @@ def variable_summaries(var, collections, family):
     tf.summary.histogram('histogram', var, collections=collections)
 
 
-def Fetch_trajectories(agent, beta=1, humans=True):
+def Fetch_trajectories(agent, beta=1):
+    '''
+    Fetch trajectories from a mix of the expert and the learned policy
+    :param agent: (agent.agent)
+    :param beta: (float) the mixing rate
+    '''
 
-    if humans:
+    if beta == 1:
         play_expert_agent_humans(agent.env, agent.policy, agent.n_actions, agent.data_path, beta,
                                  callback=save_state, keys_to_action=agent.keys_to_action, action_list=agent.list_action)
+
+    else:
+        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+            saver = tf.train.import_meta_graph('{}/model.meta'.format(self.network_path))
+            saver.restore(sess, tf.train.latest_checkpoint(self.network_path))
+            graph = tf.get_default_graph()
+            X_train = graph.get_tensor_by_name('inputs/X_train:0')
+            keep_prob = graph.get_tensor_by_name('inputs/Keep_Prob')
+            out = graph.get_tensor_by_name('Layers/Out')
+
+            play_expert_agent_humans(agent.env, lambda x: agent.policy(x, sess, X_train,keep_prob, out),
+                                     agent.n_actions, beta=beta, transpose=True, fps=20, zoom=3,
+                                     callback=save_state, keys_to_action=agent.keys_to_action, action_list=agen.list_action)
 
 
 def save_state(previous_states, action, save_path):
@@ -70,7 +88,7 @@ def save_state(previous_states, action, save_path):
 
 
 def play_expert_agent_humans(env, agent_policy, n_actions, data_set_path, beta, transpose=True, fps=20, zoom=3, callback=None,
-                             keys_to_action=None, action_list = []):
+                             callback_2=None, keys_to_action=None, action_list = []):
     '''
     This function is an adaptation of the gym.utils.play function that allows the agent to play in place of the expert,
     and to save the states.
@@ -129,6 +147,7 @@ def play_expert_agent_humans(env, agent_policy, n_actions, data_set_path, beta, 
             env_done = False
             obs = env.reset()
             previous_obs = np.stack([obs for _ in range(4)])
+            cum_rew = 0
 
         else:
             u = uniform()
@@ -151,9 +170,14 @@ def play_expert_agent_humans(env, agent_policy, n_actions, data_set_path, beta, 
             previous_obs[1, :, :, :] = previous_obs[0, :, :, :]
             previous_obs[0, :, :, :] = obs
 
+            cum_rew += rew
+
             if callback is not None:
                 callback(previous_obs, action_out, data_set_path)
                 count += action_out
+
+            if callback_2 is not None:
+                callback_2  (obs, rew, cum_rew, env_done, info)
 
         if obs is not None:
             if len(obs.shape) == 2:
@@ -198,6 +222,36 @@ def display_arr(screen, arr, video_size, transpose):
     pyg_img = pygame.transform.scale(pyg_img, video_size)
     screen.blit(pyg_img, (0, 0))
 
+class PlayPlot(object):
+    def __init__(self, callback, horizon_timesteps, plot_names):
+        self.data_callback = callback
+        self.horizon_timesteps = horizon_timesteps
+        self.plot_names = plot_names
+
+        num_plots = len(self.plot_names)
+        self.fig, self.ax = plt.subplots(num_plots)
+        if num_plots == 1:
+            self.ax = [self.ax]
+        for axis, name in zip(self.ax, plot_names):
+            axis.set_title(name)
+        self.t = 0
+        self.cur_plot = [None for _ in range(num_plots)]
+        self.data     = [deque(maxlen=horizon_timesteps) for _ in range(num_plots)]
+
+    def callback(self, obs_t, obs_tp1, action, rew, done, info):
+        points = self.data_callback(obs_t, obs_tp1, action, rew, done, info)
+        for point, data_series in zip(points, self.data):
+            data_series.append(point)
+        self.t += 1
+
+        xmin, xmax = max(0, self.t - self.horizon_timesteps), self.t
+
+        for i, plot in enumerate(self.cur_plot):
+            if plot is not None:
+                plot.remove()
+            self.cur_plot[i] = self.ax[i].scatter(range(xmin, xmax), list(self.data[i]))
+            self.ax[i].set_xlim(xmin, xmax)
+        plt.pause(0.000001)
 
 
 if __name__ == "__main__":

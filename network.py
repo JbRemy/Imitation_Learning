@@ -117,41 +117,24 @@ class Neural_Network(object):
             print(' -- Training over')
             print(' -- Model saved to : {}'.format(save_path))
 
-    def predict(self, X):
+    def predict(self, sess, X_feed, X_train, keep_prob, out):
         '''
-        predicts the ourput of the network.
-        :param X:
+        Predicts the output of the network for a set of images
+        :param sess: a running session
+        :param X_feed: (np array)
+        :param X_train: (tensor placeholder)
+        :param keep_prob: (tensor placeholder)
+        :param out: (tensor placeholder)
         :return:
         '''
 
-        res = self.predict_function(X, self.n_input_features)
+        res = sess.run(out, feed_dict={X_train: X_feed, keep_prob: 1})
         out = np.argmax(res)
 
         return out
 
 
-    def predicit_full_images(self, X, n_features):
-        '''
-        Predicts the output of the network for the data stored in X_path. . For image only features.
-        :param X: (np array)
-        :param n_features: (int) Number of input features
-        :return: (np array)
-        '''
-
-        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-            saver = tf.train.import_meta_graph('{}/model.meta'.format(self.network_path))
-            saver.restore(sess, tf.train.latest_checkpoint(self.network_path))
-            graph = tf.get_default_graph()
-            X_train = graph.get_tensor_by_name('inputs/X_train:0')
-            keep_prob = graph.get_tensor_by_name('inputs/Keep_Prob')
-            out = graph.get_tensor_by_name('Layers/Out')
-            X_flat = X.flatten().reshape(1, n_features)
-            res = sess.run(out, feed_dict={X_train: X_flat, keep_prob: 1})
-            sess.close()
-
-        return res.eval()
-
-    def _make_batch_full_images(self, game, Data_path, batch_size, n_actions):
+    def _make_batch_full_images(self, Data_path, batch_size, n_actions):
         '''
         Makes a batch from the currently saved data set. For image only features.
         :param game: (str) the game to be played
