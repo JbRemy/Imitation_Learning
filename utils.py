@@ -5,6 +5,8 @@ Utilities
 import tensorflow as tf
 from gym.utils import play
 
+import os
+
 import gym
 import pygame
 import sys
@@ -12,6 +14,7 @@ import time
 import matplotlib
 import numpy as np
 from numpy.random import uniform
+from skimage.measure import block_reduce
 
 try:
     matplotlib.use('GTK3Agg')
@@ -23,7 +26,7 @@ from collections import deque
 from pygame.locals import HWSURFACE, DOUBLEBUF, RESIZABLE, VIDEORESIZE
 
 
-def variable_summaries(var, collections):
+def variable_summaries(var, collections, family):
     '''
     Saves metrics about a variable
     :param var:
@@ -31,21 +34,22 @@ def variable_summaries(var, collections):
     '''
     with tf.name_scope('summaries'):
         mean = tf.reduce_mean(var)
-        tf.summary.scalar('mean', mean, collections='Variables')
+        tf.summary.scalar('mean', mean, collections='Variables', family=family)
 
     with tf.name_scope('stddev'):
         stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
 
-    tf.summary.scalar('stddev', stddev, collections=collections)
-    tf.summary.scalar('max', tf.reduce_max(var), collections=collections)
-    tf.summary.scalar('min', tf.reduce_min(var), collections=collections)
+    tf.summary.scalar('stddev', stddev, collections=collections, family=family)
+    tf.summary.scalar('max', tf.reduce_max(var), collections=collections, family=family)
+    tf.summary.scalar('min', tf.reduce_min(var), collections=collections, family=family)
     tf.summary.histogram('histogram', var, collections=collections)
 
 
-def Fetch_trajectories(agent, beta=1, humans=True):
+def Fetch_trajectories(agent, beta=1, humans=True, keys_to_action=None):
 
     if humans:
-        play_expert_agent_humans(agent.env, agent.policy, agent.data_path, beta)
+        play_expert_agent_humans(agent.env, agent.policy, agent.data_path, beta,
+                                 callback=save_state, keys_to_action=keys_to_action)
 
 
 def save_state(previous_states, action, save_path):
@@ -56,15 +60,16 @@ def save_state(previous_states, action, save_path):
     :param save_path: (str)
     '''
 
-    with open('{}/states_list.txt', 'w') as file:
-        lines = file.readlines()
+    state_number = len(os.listdir('{}/images'.format(save_path)))
+    previous_states_save = np.zeros([4, int(previous_states.shape[1] / 10), int(previous_states.shape[2] / 10), 3])
+    for _ in range(4):
+        previous_states_save[_, : , :, :] = block_reduce(previous_states[_, : , :, :], (10, 10, 1), np.max)
 
-    state_number = int(lines[len(lines)][-1])+1
-    np.save('{}/images/{}'.format(save_path, state_number), previous_states)
-    np.save('{}/actions/{}'.format(save_path, state_number), action)
+    np.save('{}/images/state_{}'.format(save_path, state_number), previous_states)
+    np.save('{}/actions/state_{}'.format(save_path, state_number), action)
 
 
-def play_expert_agent_humans(env, agent_policy, data_set_path, beta, transpose=True, fps=130, zoom=5, callback=None,
+def play_expert_agent_humans(env, agent_policy, data_set_path, beta, transpose=True, fps=20, zoom=3, callback=None,
                              keys_to_action=None):
     '''
     This function is an adaptation of the gym.utils.play function that allows the agent to play in place of the expert,
@@ -117,6 +122,8 @@ def play_expert_agent_humans(env, agent_policy, data_set_path, beta, transpose=T
     screen = pygame.display.set_mode(video_size)
     clock = pygame.time.Clock()
 
+    count = np.zeros((3,1))
+
     while running:
         if env_done:
             env_done = False
@@ -127,12 +134,21 @@ def play_expert_agent_humans(env, agent_policy, data_set_path, beta, transpose=T
             u = uniform()
             if u < beta:
                 action = keys_to_action[tuple(sorted(pressed_keys))]
+                print(action)
+                obs, rew, env_done, info = env.step(action)
+                action_out = np.zeros((3, 1))
+                if action == 0:
+                    action_out[action] = 1
+                else:
+                    action_out[action-1] = 1
+
 
             else:
                 action = agent_policy(previous_obs)
-                obs, rew, env_done, info = env.step(action)
+                obs, rew, env_done, info = env.step(np.argmax(action))
                 action = keys_to_action[tuple(sorted(pressed_keys))]
-
+                action_out = np.zeros((3, 1))
+                action_out[int(action/2)] = 1
 
             previous_obs[3, :, :, :] = previous_obs[2, :, :, :]
             previous_obs[2, :, :, :] = previous_obs[1, :, :, :]
@@ -140,7 +156,8 @@ def play_expert_agent_humans(env, agent_policy, data_set_path, beta, transpose=T
             previous_obs[0, :, :, :] = obs
 
             if callback is not None:
-                callback(previous_obs, action, data_set_path)
+                callback(previous_obs, action_out, data_set_path)
+                count += action_out
 
         if obs is not None:
             if len(obs.shape) == 2:
@@ -157,22 +174,26 @@ def play_expert_agent_humans(env, agent_policy, data_set_path, beta, transpose=T
             if event.type == pygame.KEYDOWN:
                 if event.key in relevant_keys:
                     pressed_keys.append(event.key)
+                    #print(pressed_keys)
                 elif event.key == 27:
                     running = False
             elif event.type == pygame.KEYUP:
                 if event.key in relevant_keys:
                     pressed_keys.remove(event.key)
+                    #print(pressed_keys)
             elif event.type == pygame.QUIT:
                 running = False
             elif event.type == VIDEORESIZE:
                 video_size = event.size
                 screen = pygame.display.set_mode(video_size)
-                print(video_size)
+                #print(video_size)
 
         pygame.display.flip()
+        pygame.time.wait(10)
         clock.tick(fps)
-    pygame.quit()
 
+    pygame.quit()
+    print(count)
 
 def display_arr(screen, arr, video_size, transpose):
     arr_min, arr_max = arr.min(), arr.max()
@@ -184,7 +205,8 @@ def display_arr(screen, arr, video_size, transpose):
 
 
 if __name__ == "__main__":
-    from Utils import Fetch_trajectories
+    from utils import Fetch_trajectories
     from agent import Agent
     agent = Agent("pong", "/Users/charlesdognin/Desktop/Imitation_Learning/pong", 0)
+    keys_to_actions = {() : 0, (0,) : 1 , (1,) : 2}
     Fetch_trajectories(agent, beta=1)

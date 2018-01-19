@@ -31,8 +31,7 @@ class DAGGER(object):
             with open('{}/list.txt', 'r') as file:
                 data_set_size = len(file.readlines())
             Fetch_trajectories(self.agent, beta=self.beta**lap)
-            self.Neural_Network.fit(self.device, self.path, '{}/Model_{}'.format(self.path, lap), writer, time.time(), lap)
-
+            self.Network.fit(self.device, self.path, '{}/Model_{}'.format(self.path, lap), writer, time.time(), lap)
         writer.close()
 
 
