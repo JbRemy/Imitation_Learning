@@ -8,7 +8,7 @@ import numpy as np
 from numpy.random import choice
 import time
 
-from utils import variable_summaries
+from Utils import variable_summaries
 
 class Neural_Network(object):
 
