@@ -37,7 +37,6 @@ class Neural_Network(object):
         if game == 'pong' or game == 'CarRacing':
             self.build_model = self._build_network_full_images
             self.placeholders = self._placeholders_full_images
-            self.predict_function = self.predicit_full_images
 
         if isinstance(network_path, str):
             self.network_path = network_path
