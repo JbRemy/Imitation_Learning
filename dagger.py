@@ -47,13 +47,18 @@ if __name__ == '__main__':
 
     # to update data_set on VM (exec on VM)
     # sudo rm -r /home/jbremy/Imitation_Learning/pong/images
-    # sudo scp -r charlesdognin@2a01:cb04:507:800:e51d:98c7:6eed:a687 /home/desktop/Imitation_Learning/pong/images/ /home/jbremy/Imitation_Learning/pong/images/
+    # sudo rsync -au charlesdognin@83.202.87.74:/home/desktop/Imitation_Learning/pong/images/ /home/jbremy/Imitation_Learning/pong/images/
     # sudo rm -r /home/jbremy/Imitation_Learning/pong/actions
     # sudo scp -r charlesdognin@2a01:cb04:507:800:e51d:98c7:6eed:a687:/home/desktop/Imitation_Learning/pong/actions/ /home/jbremy/Imitation_Learning/pong/actions/
 
     # to exec in VM
+    import parameters
+    from network import Neural_Network
+    import tensorflow as tf
+    import time
+    lap=0
     writer = tf.summary.FileWriter('{0}/Model_{1}/logs/train/'.format('pong', lap))
-    net = Neural_Network('pong')
+    net = Neural_Network('CarRacing')
     net.fit('/GPU:0', Data_path='pong', save_path="pong/Model_{}".format(lap), writer=writer, start_time=time.time(), lap=lap)
     writer.close()
 

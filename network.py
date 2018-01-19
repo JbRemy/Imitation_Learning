@@ -5,7 +5,6 @@ Implementation of the network thats learns ono the expert policies data set
 import tensorflow as tf
 import parameters
 import numpy as np
-from numpy.random import choice
 import time
 import os
 
@@ -33,9 +32,9 @@ class Neural_Network(object):
         self.n_hidden_layers_nodes = self.parameters['n_hidden_layers_nodes']
         self.optimizer = self.parameters['optimizer']
 
-        self.n_input_features = self.input_H*self.input_W*self.input_C*4
+        self.n_input_features = int(self.input_H*self.input_W/6)*self.input_C*4
 
-        if game == 'pong':
+        if game == 'pong' or game == 'CarRacing':
             self.build_model = self._build_network_full_images
             self.placeholders = self._placeholders_full_images
             self.predict_function = self.predicit_full_images
@@ -63,7 +62,7 @@ class Neural_Network(object):
             tf.summary.scalar('accuracy', acc, family='Lap_{}'.format(lap))
             with tf.name_scope('Lap_{}'.format(lap)):
                 with tf.name_scope('Inputs'):
-                    X, y, keep_prob = self.placeholders(self.n_input_features, self.n_actions)
+                    X, y, keep_prob = self.placeholders(self.n_actions)
 
                 with tf.name_scope('Layers'):
                     network = self.build_model(X, keep_prob, self.n_input_features, self.n_hidden_layers_nodes,
@@ -76,7 +75,10 @@ class Neural_Network(object):
                     merged_summary = tf.summary.merge_all('train')
 
                 with tf.name_scope('Optimizer'):
-                    optimizer = self.optimizer(self.learning_rate)
+                    global_step = tf.Variable(0, trainable=False)
+                    learning_rate_decay = tf.train.exponential_decay(self.learning_rate, global_step,
+                                                                     1000, 0.5, staircase=True, name='Learning_Rate')
+                    optimizer = self.optimizer(learning_rate_decay)
                     minimizer = optimizer.minimize(loss)
 
                 print(' -- Network initialized')
@@ -87,15 +89,16 @@ class Neural_Network(object):
 
                 saver = tf.train.Saver()
                 init = tf.global_variables_initializer()
+                X_temp = np.zeros((1, self.input_W, self.input_H, self.input_C*4))
                 with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
                     sess.run(init)
                     for epoch in range(self.n_epochs):
                         for batch_number in range(int(self.set_size/self.batch_size)):
-                            X_batch, y_batch =  self._make_batch_full_images(self.game, Data_path, self.batch_size,
-                                                                             self.n_input_features, self.n_actions)
+                            X_batch, y_batch =  self._make_batch_full_images(self.game, Data_path, self.batch_size, self.n_actions)
                             cost = 0
                             for ind in range(self.batch_size):
-                                _, res, c, summary = sess.run([minimizer, network, loss, merged_summary], feed_dict={X: X_batch[ind, :, :], y: y_batch[ind, :, :], keep_prob: 0.7})
+                                X_temp[0, :, :, :] = X_batch[ind, :, :, :]
+                                _, res, c, summary = sess.run([minimizer, network, loss, merged_summary], feed_dict={X: X_temp, y: y_batch[ind, :, :], keep_prob: 0.7})
                                 cost += c
                                 if np.argmax(res) == np.argmax(y_batch[_, :]):
                                     acc += 1
@@ -107,48 +110,31 @@ class Neural_Network(object):
                                                                                         time.gmtime(time.time() - start_time))))
                                 print(' |--- Avg cost = {}'.format(cost/self.batch_size))
 
-                    saver.save(sess, save_path)
+                    saver.save(sess, '{}/model.ckpt'.format(save_path))
                     sess.close()
 
             #writer.add_summary(acc, lap)
             print(' -- Training over')
             print(' -- Model saved to : {}'.format(save_path))
 
-    def predict(self, X):
+    def predict(self, sess, X_feed, X_train, keep_prob, out):
         '''
-        predicts the ourput of the network.
-        :param X:
+        Predicts the output of the network for a set of images
+        :param sess: a running session
+        :param X_feed: (np array)
+        :param X_train: (tensor placeholder)
+        :param keep_prob: (tensor placeholder)
+        :param out: (tensor placeholder)
         :return:
         '''
 
-        res = self.predict_function(X, self.n_input_features)
+        res = sess.run(out, feed_dict={X_train: X_feed, keep_prob: 1})
         out = np.argmax(res)
 
         return out
 
 
-    def predicit_full_images(self, X, n_features):
-        '''
-        Predicts the output of the network for the data stored in X_path. . For image only features.
-        :param X: (np array)
-        :param n_features: (int) Number of input features
-        :return: (np array)
-        '''
-
-        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-            saver = tf.train.import_meta_graph('{}/model.meta'.format(self.network_path))
-            saver.restore(sess, tf.train.latest_checkpoint(self.network_path))
-            graph = tf.get_default_graph()
-            X_train = graph.get_tensor_by_name('inputs/X_train:0')
-            keep_prob = graph.get_tensor_by_name('inputs/Keep_Prob')
-            out = graph.get_tensor_by_name('Layers/Out')
-            X_flat = X.flatten().reshape(1, n_features)
-            res = sess.run(out, feed_dict={X_train: X_flat, keep_prob: 1})
-            sess.close()
-
-        return res.eval()
-
-    def _make_batch_full_images(self, game, Data_path, batch_size, n_features, n_actions):
+    def _make_batch_full_images(self, Data_path, batch_size, n_actions):
         '''
         Makes a batch from the currently saved data set. For image only features.
         :param game: (str) the game to be played
@@ -162,12 +148,14 @@ class Neural_Network(object):
 
         num_states = len(os.listdir('{}/images'.format(Data_path)))
         batch_list = np.random.choice(num_states-1, batch_size)
-        X_batch = np.zeros([batch_size, 1, n_features])
+        X_batch = np.zeros([batch_size, self.input_W, self.input_H, self.input_C*4])
         y_batch = np.zeros([batch_size, 1, n_actions])
         for _, i in enumerate(batch_list):
-            img = np.load('{0}/images/state_{1}.npy'.format(game, i+1))
-            X_batch[_, 0, :] = img.flatten()/255
-            y_batch[_, :, :] = np.transpose(np.load('{0}/actions/state_{1}.npy'.format(game, i+1)))
+            img = np.load('{0}/images/state_{1}.npy'.format(Data_path, i+1))
+            for _2 in range(4):
+                X_batch[_, :, :, _2*self.input_C:(_2+1)*self.input_C] = img[_2, :, :, :]/255
+
+            y_batch[_, :, :] = np.transpose(np.load('{0}/actions/state_{1}.npy'.format(Data_path, i+1)))
 
         return X_batch, y_batch
 
@@ -183,7 +171,9 @@ class Neural_Network(object):
         :return: (tensor)
         '''
 
-        hidden_out = self._linear_layer(input, n_features, n_hidden_layer_nodes, name='Hidden_Layer')
+        pooled = tf.layers.max_pooling2d(input, pool_size=(3, 2), strides=(3, 2), name='Max_Pooling_layer',)
+        flat_pooled = tf.contrib.layers.flatten(pooled)
+        hidden_out = self._linear_layer(flat_pooled, n_features, n_hidden_layer_nodes, name='Hidden_Layer')
         with tf.name_scope('Dropout'):
             hidden_out = tf.nn.dropout(hidden_out, keep_prob=keep_prob, name='Dropout')
 
@@ -220,7 +210,7 @@ class Neural_Network(object):
         return out
 
 
-    def _placeholders_full_images(self, n_features, n_actions):
+    def _placeholders_full_images(self, n_actions):
         '''
         Creates placeholders. For image only features.
         :param n_features: (int)
@@ -228,7 +218,7 @@ class Neural_Network(object):
         :return: (tensor) (tensor) (tensor)
         '''
 
-        X = tf.placeholder(dtype='float32', shape=[1, n_features], name='X_train')
+        X = tf.placeholder(dtype='float32', shape=[1, self.input_W, self.input_H, self.input_C*4], name='X_train')
         y = tf.placeholder(dtype='float32', shape=[1, n_actions], name='y_train')
         keep_prob = tf.placeholder(tf.float32, name='Keep_Prob')
 
