@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import gym
-import Network
+import network
 
 import parameters
 
