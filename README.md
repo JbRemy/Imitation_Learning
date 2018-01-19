@@ -10,22 +10,3 @@ The goal is to train an agent to play Enduro (https://gym.openai.com/envs/Enduro
 to No-Regret Online Learning</a>
 
 To implement the algorithm we use python and the open AI gym environment. 
-
-**To do**:
-- [ ] Build Neural net
-- [ ] Data set Generation
-- [ ] Build machine interface
-
-Repo architecture :
-- <span style="color:green"> Algorithms.py</span> (SMILE DAGGER)
-- <span style="color:red"> Data</span>
-    - game
-        - images (.npy)
-        - actions (.npy)
-        - states_list (.txt)
-        - states (.npy)
-- <span style="color:green"> main.py</span>
-- <span style="color:red"> Models</span>
-    - saved models
-- <span style="color:green"> Network.py</span>
-- <span style="color:green"> Utils.py</span>
